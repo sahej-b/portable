@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portable App Maker (Frontend-Only)</title>
+    <title>Portable App Maker (7z + NSIS)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -40,7 +40,7 @@
 </head>
 <body>
     <div id="upload-container">
-        <h2>Convert Installer to Portable App (No Backend)</h2>
+        <h2>Convert Installer to Portable App</h2>
         <input type="file" id="installer" accept=".exe,.msi">
         <button onclick="extractInstaller()">Convert</button>
         <p id="status"></p>
@@ -48,6 +48,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@xpdzas/7z-wasm@latest/dist/7z-wasm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@nsis-extract/wasm@latest/dist/nsis-extract.min.js"></script>
+
     <script>
         async function extractInstaller() {
             const fileInput = document.getElementById("installer");
@@ -63,28 +65,38 @@
             document.getElementById("status").innerText = "Extracting...";
 
             reader.onload = async function () {
+                const data = new Uint8Array(reader.result);
+                let extractedFiles = null;
+
                 try {
-                    const data = new Uint8Array(reader.result);
                     const { extract } = await import("https://cdn.jsdelivr.net/npm/@xpdzas/7z-wasm@latest/dist/7z-wasm.min.js");
-
-                    // Extract the installer
-                    const extractedFiles = await extract(data, { format: "zip" });
-
-                    // Convert extracted files to a downloadable ZIP
-                    const zipBlob = new Blob([extractedFiles], { type: "application/zip" });
-                    const url = URL.createObjectURL(zipBlob);
-
-                    // Provide a download link
-                    const downloadLink = document.getElementById("download-link");
-                    downloadLink.href = url;
-                    downloadLink.style.display = "block";
-                    downloadLink.innerText = "Download Extracted Files";
-
-                    document.getElementById("status").innerText = "Extraction complete!";
+                    extractedFiles = await extract(data, { format: "zip" });
                 } catch (error) {
-                    console.error("Extraction failed:", error);
-                    document.getElementById("status").innerText = "Error: Extraction failed.";
+                    console.warn("7-Zip extraction failed. Trying NSIS...");
                 }
+
+                if (!extractedFiles) {
+                    try {
+                        const { extract } = await import("https://cdn.jsdelivr.net/npm/@nsis-extract/wasm@latest/dist/nsis-extract.min.js");
+                        extractedFiles = await extract(data);
+                    } catch (error) {
+                        document.getElementById("status").innerText = "Extraction failed.";
+                        console.error("Both extraction methods failed:", error);
+                        return;
+                    }
+                }
+
+                // Convert extracted files to a downloadable ZIP
+                const zipBlob = new Blob([extractedFiles], { type: "application/zip" });
+                const url = URL.createObjectURL(zipBlob);
+
+                // Provide a download link
+                const downloadLink = document.getElementById("download-link");
+                downloadLink.href = url;
+                downloadLink.style.display = "block";
+                downloadLink.innerText = "Download Extracted Files";
+
+                document.getElementById("status").innerText = "Extraction complete!";
             };
         }
     </script>
