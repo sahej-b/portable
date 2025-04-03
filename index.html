@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portable App Maker (Frontend-Only)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+            background-color: #f4f4f4;
+        }
+        #upload-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+        }
+        input {
+            margin-top: 10px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #218838;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="upload-container">
+        <h2>Convert Installer to Portable App (No Backend)</h2>
+        <input type="file" id="installer" accept=".exe,.msi">
+        <button onclick="extractInstaller()">Convert</button>
+        <p id="status"></p>
+        <a id="download-link" style="display:none" download="portable.zip">Download Extracted Files</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@xpdzas/7z-wasm@latest/dist/7z-wasm.min.js"></script>
+    <script>
+        async function extractInstaller() {
+            const fileInput = document.getElementById("installer");
+            if (!fileInput.files.length) {
+                alert("Please select an installer file.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+
+            document.getElementById("status").innerText = "Extracting...";
+
+            reader.onload = async function () {
+                try {
+                    const data = new Uint8Array(reader.result);
+                    const { extract } = await import("https://cdn.jsdelivr.net/npm/@xpdzas/7z-wasm@latest/dist/7z-wasm.min.js");
+
+                    // Extract the installer
+                    const extractedFiles = await extract(data, { format: "zip" });
+
+                    // Convert extracted files to a downloadable ZIP
+                    const zipBlob = new Blob([extractedFiles], { type: "application/zip" });
+                    const url = URL.createObjectURL(zipBlob);
+
+                    // Provide a download link
+                    const downloadLink = document.getElementById("download-link");
+                    downloadLink.href = url;
+                    downloadLink.style.display = "block";
+                    downloadLink.innerText = "Download Extracted Files";
+
+                    document.getElementById("status").innerText = "Extraction complete!";
+                } catch (error) {
+                    console.error("Extraction failed:", error);
+                    document.getElementById("status").innerText = "Error: Extraction failed.";
+                }
+            };
+        }
+    </script>
+</body>
+</html>
